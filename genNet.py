@@ -66,6 +66,9 @@ def sample(mean, std):
         random_sample = tf.random_normal(shape)
         return mean + tf.exp(std * .5) * random_sample
 
+def batch_norm(input, training, axis=-1):
+    return tf.layers.batch_normalization(input, training=training, axis=axis)
+
 
 # Loss functions
 def kl_loss_n(mean, log_var):
@@ -88,20 +91,27 @@ def vis_voxel_reconstruction(res, val):
         pred = voxel_rec[i].T[0]
         # pred[pred < 0.5] = 0
         # pred[pred >= 0.5] = 1
+        # colors = np.empty(spatial_axes + [4], dtype=np.float32)
+        alpha = .4
+        # colors[0] = [1, 0, 0, alpha]
+        # colors[1] = [0, 1, 0, alpha]
+        # colors[2] = [0, 0, 1, alpha]
+        # colors[3] = [1, 1, 0, alpha]
+        # colors[4] = [0, 1, 1, alpha]
 
-        axes[i,0].voxels(label)
-        axes[i,1].voxels(pred)
+        axes[i,0].voxels(label, edgecolors='k')
+        axes[i,1].voxels(pred, edgecolors='k')
     plt.show()
 
 
 def main():
     # Variables
-    batch_size = 4
-    training = tf.placeholder_with_default(True, shape=())
+    batch_size = 10
+
     # supress tensorflow Warnings
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    path = "data/dataset/qube/test"
+    path = "data/dataset/qube/train"
 
     # load dataset
     iterator, length = create_iterator(batch_size, path)
@@ -110,22 +120,31 @@ def main():
     # graph
     with tf.variable_scope('Image-Input'):
         img_input = tf.placeholder(tf.float32, [None, 32, 32, 32, 1])
+        training = tf.placeholder_with_default(True, shape=())
         print(img_input.get_shape())
 
     with tf.variable_scope("Encoder", reuse=tf.AUTO_REUSE):
-        encoding = conv(img_input, 8, 3, 1, padding="valid")
+        encoding = batch_norm(img_input, training=training)
+        encoding = conv(encoding, 8, 3, 1, padding="valid")
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 16, 3, 2)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 32, 3, 1,padding="valid")
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 64, 3, 2)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         flatten = tf.layers.flatten(encoding)
         flatten = tf.layers.dense(flatten, 343, activation=tf.nn.relu)
+        flatten = batch_norm(flatten, training=training, axis=1)
         # print(flatten.get_shape())
         mean = tf.layers.dense(flatten, 2)
+        mean = batch_norm(mean, training=training, axis=1)
         std = tf.layers.dense(flatten, 2)
+        std = batch_norm(std, training=training, axis=1)
 
     with tf.variable_scope("Sample"):
         samples = sample(mean, std)
@@ -133,16 +152,21 @@ def main():
 
     with tf.variable_scope("Decoder", reuse=tf.AUTO_REUSE):
         decode = tf.layers.dense(samples, 512, activation=tf.nn.relu)
+        decode = batch_norm(decode, training=training, axis=1)
         # print(decode.get_shape())
         decode = tf.reshape(decode, [-1, 8, 8, 8, 1])
         # print(decode.get_shape())
         decode = deconv(decode, 64, 3, 1, activation=tf.nn.relu, )
+        decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 32, 5, 2, activation=tf.nn.relu)
+        decode = batch_norm(decode, training=training)
         print(decode.get_shape())
-        decode = deconv(decode, 16, 3, 1, activation=tf.nn.relu, padding="valid")
+        decode = deconv(decode, 16, 3, 1, activation=tf.nn.relu)
+        # decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 8, 3, 2, activation=tf.nn.relu)
+        # decode = batch_norm(decode, training=training)
         # print()
         print(decode.get_shape())
         decode = deconv(decode, 1, 3, 1, activation=tf.nn.sigmoid)
@@ -165,7 +189,7 @@ def main():
 
     saver = tf.train.Saver()
     try:
-        saver.restore(train_sess, 'model.ckpt')
+        saver.restore(train_sess, 'model_batch.ckpt')
     except ValueError:
         pass
     # dataloop
@@ -182,10 +206,10 @@ def main():
 
 
             # break
-            if (i % 500) == 0:
-                saver.save(train_sess, 'model.ckpt')
+            if (i % 100) == 0:
+                saver.save(train_sess, 'model_batch.ckpt')
                 print("Model saved!")
-            if (i % 500) == 0:
+            if (i % 100) == 0:
                 vis_voxel_reconstruction(res, val)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
