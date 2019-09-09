@@ -83,7 +83,7 @@ def kl_loss_n(mean, log_var):
 
 def vis_voxel_reconstruction(res, val):
     vis = 2
-    fig, axes = plt.subplots(vis, 2, subplot_kw=dict(projection='3d'))
+    fig, axes = plt.subplots(vis, 2, subplot_kw=dict(projection='3d'), figsize=(25,25))
     for i in range(vis):
         voxel_rec = res[1]
         label = val[0][i].T[0]
@@ -99,7 +99,7 @@ def vis_voxel_reconstruction(res, val):
         # colors[3] = [1, 1, 0, alpha]
         # colors[4] = [0, 1, 1, alpha]
 
-        axes[i,0].voxels(label, edgecolors='k')
+        axes[i,0].voxels(label, edgecolors='k', )
         axes[i,1].voxels(pred, edgecolors='k')
     plt.show()
 
@@ -152,15 +152,15 @@ def main():
 
     with tf.variable_scope("Decoder", reuse=tf.AUTO_REUSE):
         decode = tf.layers.dense(samples, 512, activation=tf.nn.relu)
-        decode = batch_norm(decode, training=training, axis=1)
+        # decode = batch_norm(decode, training=training, axis=1)
         # print(decode.get_shape())
         decode = tf.reshape(decode, [-1, 8, 8, 8, 1])
         # print(decode.get_shape())
         decode = deconv(decode, 64, 3, 1, activation=tf.nn.relu, )
-        decode = batch_norm(decode, training=training)
+        # decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 32, 5, 2, activation=tf.nn.relu)
-        decode = batch_norm(decode, training=training)
+        # decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 16, 3, 1, activation=tf.nn.relu)
         # decode = batch_norm(decode, training=training)
@@ -169,7 +169,7 @@ def main():
         # decode = batch_norm(decode, training=training)
         # print()
         print(decode.get_shape())
-        decode = deconv(decode, 1, 3, 1, activation=tf.nn.sigmoid)
+        decode = deconv(decode, 1, 3, 1, activation=tf.nn.sigmoid, padding="valid")
         print(decode.get_shape())
 
     with tf.variable_scope("Losses", reuse=tf.AUTO_REUSE):
@@ -182,7 +182,7 @@ def main():
         # print(loss.get_shape())
 
     with tf.variable_scope('2D_Train', reuse=tf.AUTO_REUSE):
-        train = tf.train.AdamOptimizer(0.001).minimize(loss)
+        train = tf.train.AdamOptimizer(0.0001).minimize(loss)
 
     train_sess = tf.Session()
     train_sess.run(tf.global_variables_initializer())
@@ -209,8 +209,8 @@ def main():
             if (i % 100) == 0:
                 saver.save(train_sess, 'model_batch.ckpt')
                 print("Model saved!")
-            if (i % 100) == 0:
-                vis_voxel_reconstruction(res, val)
+            # if (i % 100) == 0:
+            #     vis_voxel_reconstruction(res, val)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
                 sess.run(iterator.initializer)
