@@ -81,7 +81,7 @@ def kl_loss_n(mean, log_var):
     return - .5 * (1 + log_var - tf.square(mean) - tf.exp(log_var))
 
 
-def vis_voxel_reconstruction(res, val):
+def vis_voxel_reconstruction(res, val, iteration):
     vis = 2
     fig, axes = plt.subplots(vis, 2, subplot_kw=dict(projection='3d'), figsize=(25,25))
     for i in range(vis):
@@ -101,9 +101,9 @@ def vis_voxel_reconstruction(res, val):
 
         axes[i,0].voxels(label, edgecolors='k', )
         axes[i,1].voxels(pred, edgecolors='k')
-    plt.show()
+    plt.savefig("out/"+str(iteration)+".png")
 
-
+(5,30,30,30,8)
 def main():
     # Variables
     batch_size = 10
@@ -126,6 +126,7 @@ def main():
     with tf.variable_scope("Encoder", reuse=tf.AUTO_REUSE):
         encoding = batch_norm(img_input, training=training)
         encoding = conv(encoding, 8, 3, 1, padding="valid")
+        # (5, 30,30,30,8)
         encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 16, 3, 2)
@@ -138,12 +139,12 @@ def main():
         encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         flatten = tf.layers.flatten(encoding)
-        flatten = tf.layers.dense(flatten, 343, activation=tf.nn.relu)
+        flatten = tf.layers.dense(flatten, 512, activation=tf.nn.relu)
         flatten = batch_norm(flatten, training=training, axis=1)
         # print(flatten.get_shape())
-        mean = tf.layers.dense(flatten, 2)
+        mean = tf.layers.dense(flatten, 512)
         mean = batch_norm(mean, training=training, axis=1)
-        std = tf.layers.dense(flatten, 2)
+        std = tf.layers.dense(flatten, 512)
         std = batch_norm(std, training=training, axis=1)
 
     with tf.variable_scope("Sample"):
@@ -182,20 +183,25 @@ def main():
         # print(loss.get_shape())
 
     with tf.variable_scope('2D_Train', reuse=tf.AUTO_REUSE):
-        train = tf.train.AdamOptimizer(0.0001).minimize(loss)
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            train = tf.train.AdamOptimizer(0.0001).minimize(loss)
 
+    # update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    # with tf.control_dependencies(update_ops):
+    #     train_op = optimizer.minimize(loss)
     train_sess = tf.Session()
     train_sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver()
-    try:
-        saver.restore(train_sess, 'model_batch.ckpt')
-    except ValueError:
-        pass
+    # try:
+    #     saver.restore(train_sess, 'model_batch_norm.ckpt')
+    # except ValueError:
+    #     pass
     # dataloop
     with tf.Session() as sess:
         sess.run(iterator.initializer)
-        for i in range(5001):
+        for i in range(0, 50001):
             val = sess.run(next_element)
             # val = (tf.convert_to_tensor(val[0]))
             # print(len(val))
@@ -204,13 +210,12 @@ def main():
 
             print("Epoch:", i, "loss:", res[0])
 
-
             # break
             if (i % 100) == 0:
-                saver.save(train_sess, 'model_batch.ckpt')
+                saver.save(train_sess, 'model_batch_norm.ckpt')
                 print("Model saved!")
-            # if (i % 100) == 0:
-            #     vis_voxel_reconstruction(res, val)
+            if (i % 100) == 0:
+                vis_voxel_reconstruction(res, val, i)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
                 sess.run(iterator.initializer)
