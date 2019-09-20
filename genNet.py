@@ -43,7 +43,7 @@ def create_iterator(batch_size, path):
     print(length)
     dx = tf.data.Dataset.from_tensor_slices(filenames).map(
         lambda item: tf.py_func(load_samples, [item], [tf.float32]))
-    dx = dx.batch(batch_size).shuffle(buffer_size=1000)
+    dx = dx.batch(batch_size).shuffle(buffer_size=11630)
 
     iterator = dx.make_initializable_iterator()
     return iterator, length
