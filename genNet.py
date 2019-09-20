@@ -193,7 +193,7 @@ def main():
     train_sess = tf.Session()
     train_sess.run(tf.global_variables_initializer())
 
-    # saver = tf.train.Saver()
+    saver = tf.train.Saver()
     # try:
     #     saver.restore(train_sess, 'model_batch_norm.ckpt')
     # except ValueError:
@@ -214,8 +214,8 @@ def main():
             # if (i % 100) == 0:
             #     saver.save(train_sess, 'model_batch_norm.ckpt')
             #     print("Model saved!")
-            if (i % 100) == 0:
-                vis_voxel_reconstruction(res, val, i)
+            # if (i % 100) == 0:
+            #     vis_voxel_reconstruction(res, val, i)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
                 sess.run(iterator.initializer)
