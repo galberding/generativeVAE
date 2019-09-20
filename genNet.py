@@ -103,7 +103,7 @@ def vis_voxel_reconstruction(res, val, iteration):
         axes[i,1].voxels(pred, edgecolors='k')
     plt.savefig("out/"+str(iteration)+".png")
 
-(5,30,30,30,8)
+# (5,30,30,30,8)
 def main():
     # Variables
     batch_size = 10
@@ -193,7 +193,7 @@ def main():
     train_sess = tf.Session()
     train_sess.run(tf.global_variables_initializer())
 
-    saver = tf.train.Saver()
+    # saver = tf.train.Saver()
     # try:
     #     saver.restore(train_sess, 'model_batch_norm.ckpt')
     # except ValueError:
@@ -211,9 +211,9 @@ def main():
             print("Epoch:", i, "loss:", res[0])
 
             # break
-            if (i % 100) == 0:
-                saver.save(train_sess, 'model_batch_norm.ckpt')
-                print("Model saved!")
+            # if (i % 100) == 0:
+            #     saver.save(train_sess, 'model_batch_norm.ckpt')
+            #     print("Model saved!")
             if (i % 100) == 0:
                 vis_voxel_reconstruction(res, val, i)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
