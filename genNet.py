@@ -106,7 +106,7 @@ def vis_voxel_reconstruction(res, val, iteration):
 # (5,30,30,30,8)
 def main():
     # Variables
-    batch_size = 10
+    batch_size = 150
 
     # supress tensorflow Warnings
     tf.logging.set_verbosity(tf.logging.ERROR)
