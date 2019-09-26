@@ -122,6 +122,7 @@ def vis_voxel_reconstruction(reconstruction, val, iteration):
         axes[i,0].voxels(label, edgecolors='k', )
         axes[i,1].voxels(pred, edgecolors='k')
     plt.savefig("out/images/"+str(iteration)+".png")
+    plt.close(fig)
 
 # (5,30,30,30,8)
 def main():
@@ -234,10 +235,12 @@ def main():
         print("Could not restore model.")
         pass
     # dataloop
-    epoch = 0
+    epoch = 300 
+    i = 50000
     with tf.Session() as sess:
         sess.run(iterator.initializer)
-        for i in range(0, 50001):
+        #for i in range(0, 50001):
+        while True:
             val = sess.run(next_element)
             # val = (tf.convert_to_tensor(val[0]))
             # print(len(val))
@@ -249,10 +252,10 @@ def main():
             train_writer.add_summary(summary, i)
 
             # break
-            if (i % 100) == 0:
+            if (i % 1000) == 0:
                 saver.save(train_sess, 'out/model_batch_norm.ckpt')
                 print("Model saved!")
-            if (i % 1) == 0:
+            if (i % 1000) == 0:
                 vis_voxel_reconstruction(reconstruction, val, i)
             #     # plot_to_tensorboard(train_writer, figure, i)
             #     # loss_, summary, summary_rec, _ = train_sess.run(
@@ -264,7 +267,7 @@ def main():
                 print("reinitialized")
                 epoch += 1
                 sess.run(iterator.initializer)
-
+            i += 1
 
 if __name__ == '__main__':
     main()
