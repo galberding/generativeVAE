@@ -168,7 +168,7 @@ def vis_voxel_reconstruction(writer, reconstruction, val, iteration):
 # (5,30,30,30,8)
 def main():
     # Variables
-    batch_size = 2
+    batch_size = 60
     OUT_FILE = "out/train_2"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
@@ -350,7 +350,7 @@ def main():
             # break
             # break
 
-            if (i % 1) == 0:
+            if (i % 1000) == 0:
                 saver.save(train_sess, MODEL_PATH)
                 np.savez(CONFIG_PATH, state=np.array([epoch, i]))
                 print("Model saved!")
