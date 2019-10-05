@@ -168,7 +168,7 @@ def vis_voxel_reconstruction(writer, reconstruction, val, iteration):
 # (5,30,30,30,8)
 def main():
     # Variables
-    batch_size = 2
+    batch_size = 5
     OUT_FILE = "out/train_2"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
@@ -198,20 +198,20 @@ def main():
         # encoding = batch_norm(img_input, training=training)
         encoding = conv(img_input, 8, 3, 1, padding="valid")
         # (5, 30,30,30,8)
-        # encoding = batch_norm(encoding, training=training)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 16, 3, 2)
-        # encoding = batch_norm(encoding, training=training)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 32, 3, 1, padding="valid")
-        # encoding = batch_norm(encoding, training=training)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         encoding = conv(encoding, 64, 3, 2)
-        # encoding = batch_norm(encoding, training=training)
+        encoding = batch_norm(encoding, training=training)
         print(encoding.get_shape())
         flatten = tf.layers.flatten(encoding)
         flatten = tf.layers.dense(flatten, 512, activation=tf.nn.relu)
-        # flatten = batch_norm(flatten, training=training, axis=1)
+        flatten = batch_norm(flatten, training=training, axis=1)
         # print(flatten.get_shape())
         mean = tf.layers.dense(flatten, 128)
         # mean = batch_norm(mean, training=training, axis=1)
@@ -224,18 +224,18 @@ def main():
 
     with tf.variable_scope("Decoder", reuse=tf.AUTO_REUSE):
         decode = tf.layers.dense(samples, 512, activation=tf.nn.relu)
-        # decode = batch_norm(decode, training=training, axis=1)
+        decode = batch_norm(decode, training=training, axis=1)
         # print(decode.get_shape())
         decode = tf.reshape(decode, [-1, 8, 8, 8, 1])
         # print(decode.get_shape())
         decode = deconv(decode, 64, 3, 1, activation=tf.nn.relu, )
-        # decode = batch_norm(decode, training=training)
+        decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 32, 5, 2, activation=tf.nn.relu)
-        # decode = batch_norm(decode, training=training)
+        decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 16, 3, 1, activation=tf.nn.relu)
-        # decode = batch_norm(decode, training=training)
+        decode = batch_norm(decode, training=training)
         print(decode.get_shape())
         decode = deconv(decode, 8, 3, 2, activation=tf.nn.relu)
         # decode = batch_norm(decode, training=training)
@@ -327,10 +327,10 @@ def main():
             # print(len(val))
             # print(val[0][0].T[0].shape)
             loss_, reconstruction, _ , iou_, kl_divergence_, rec_loss_ = train_sess.run(
-                [loss, decode, train, iou, kl_divergence, rec_loss], feed_dict={img_input: train_val[0]})
+                [loss, decode, train, iou, kl_divergence, rec_loss], feed_dict={img_input: train_val[0], training : True})
 
             test_loss_, test_reconstruction, test_iou_out, test_kl_divergence, test_rec_loss = train_sess.run(
-                [loss, decode, iou, kl_divergence, rec_loss], feed_dict={img_input: test_val[0]})
+                [loss, decode, iou, kl_divergence, rec_loss], feed_dict={img_input: test_val[0], training : False})
 
             print("Epoch:", epoch, "Iteration:", i, "train_loss:", loss_, "validation loss:", test_loss_, "IoU train:", iou_, "IoU test:", test_iou_out)
             # train_writer.add_summary(summary, i)
@@ -350,14 +350,14 @@ def main():
             # break
             # break
 
-            if (i % 1) == 0:
+            if (i % 500) == 0:
                 saver.save(train_sess, MODEL_PATH)
                 np.savez(CONFIG_PATH, state=np.array([epoch, i]))
                 print("Model saved!")
-            if (i % 1000) == 0:
+            if (i % 500) == 0:
                 print("Save images")
                 vis_voxel_reconstruction(train_writer,reconstruction, train_val, i,)
-                vis_voxel_reconstruction(test_writer,reconstruction, test_val, i)
+                vis_voxel_reconstruction(test_writer,test_reconstruction, test_val, i)
 
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
