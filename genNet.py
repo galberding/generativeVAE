@@ -179,8 +179,8 @@ def main():
     # supress tensorflow Warnings
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    train_path = "data/dataset/qube/train"
-    test_path = "data/dataset/qube/test"
+    train_path = "../Datasets/VoxelPenQubes/qube/train"
+    test_path = "../Datasets/VoxelPenQubes/qube/test"
 
     # load dataset
     iterator, length = create_iterator(batch_size, train_path)
