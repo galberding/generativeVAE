@@ -171,7 +171,7 @@ def main():
 
     batch_size = 60
     z_dim = 128
-    OUT_FILE = "out/train_2"
+    OUT_FILE = "out/final_qube"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
 
@@ -180,8 +180,8 @@ def main():
     # supress tensorflow Warnings
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    train_path = "../Datasets/VoxelPenQubes/qube/train"
-    test_path = "../Datasets/VoxelPenQubes/qube/test"
+    train_path = "../Datasets/Voxel_qubes/dataset/qube/train"
+    test_path = "../Datasets/Voxel_qubes/dataset/qube/test"
 
     # load dataset
     iterator, length = create_iterator(batch_size, train_path)
