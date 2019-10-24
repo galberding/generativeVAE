@@ -170,6 +170,7 @@ def main():
     # Variables
 
     batch_size = 60
+    z_dim = 128
     OUT_FILE = "out/train_2"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
@@ -214,9 +215,9 @@ def main():
         flatten = tf.layers.dense(flatten, 512, activation=tf.nn.relu)
         flatten = batch_norm(flatten, training=training, axis=1)
         # print(flatten.get_shape())
-        mean = tf.layers.dense(flatten, 128)
+        mean = tf.layers.dense(flatten, z_dim)
         # mean = batch_norm(mean, training=training, axis=1)
-        std = tf.layers.dense(flatten, 128)
+        std = tf.layers.dense(flatten, z_dim)
         # std = batch_norm(std, training=training, axis=1)
 
     with tf.variable_scope("Sample"):
