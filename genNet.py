@@ -1,3 +1,4 @@
+from tensorflow_probability import distributions as tfd
 import tensorflow as tf
 import numpy as np
 from scipy.stats import norm
@@ -10,6 +11,10 @@ from tensorflow.keras.backend import binary_crossentropy
 import os
 import io
 from tensorboardX import SummaryWriter
+import matplotlib.cm as cm
+from sklearn.decomposition import PCA
+from matplotlib.colors import LinearSegmentedColormap
+
 
 
 # from StringIO import StringIO
@@ -77,10 +82,16 @@ def get_filenames(path):
 
 
 def load_samples(paths):
-    item = np.load(paths.decode())
+    item = np.load(paths.decode(), allow_pickle=True)
     voxel = item["voxel"]
+    transl = item["transl"]
+    ypr = item["yaw_pitch_roll"]
+    # print(transl)
+    # yaw = ypr[0]
+    # pitch = ypr[1]
+    # roll = ypr[2]
     # print("Test")
-    return voxel.astype(np.float32)[np.newaxis].T
+    return voxel.astype(np.float32)[np.newaxis].T, np.array(ypr, dtype=np.float32), np.array(transl, dtype=np.float32)
 
 
 def create_iterator(batch_size, path):
@@ -94,7 +105,7 @@ def create_iterator(batch_size, path):
     filenames, length = get_filenames(path)
     print(length)
     dx = tf.data.Dataset.from_tensor_slices(filenames).map(
-        lambda item: tf.py_func(load_samples, [item], [tf.float32]))
+        lambda item: tf.py_func(load_samples, [item], [tf.float32, tf.float32, tf.float32]))
     dx = dx.batch(batch_size).shuffle(buffer_size=60)
 
     iterator = dx.make_initializable_iterator()
@@ -114,9 +125,11 @@ def deconv(inputs, filters, kernel_size, strides, activation=tf.nn.relu, padding
 
 def sample(mean, std):
     with tf.variable_scope('random_sampling'):
-        shape = tf.shape(mean)
-        random_sample = tf.random_normal(shape)
-        return mean + tf.exp(std * .5) * random_sample
+        # shape = tf.shape(mean)
+        # random_sample = tf.random_normal(shape)
+        # return mean + tf.exp(std * .5) * random_sample
+        dist = tfd.MultivariateNormalDiag(mean, std)
+        return dist.sample()
 
 
 def batch_norm(input, training, axis=-1):
@@ -165,13 +178,47 @@ def vis_voxel_reconstruction(writer, reconstruction, val, iteration):
     plt.close(fig)
 
 
+def set_subplot_colormap(axes, samples, attr, cmap="hot_r", title="Title", xlable="X", ylable="Y"):
+    axes.set_facecolor('#e0e0e0')
+    axes.set_title(title)
+    axes.set_xlabel(xlable)
+    axes.set_ylabel(ylable)
+    scatter = axes.scatter(samples[:, 0], samples[:, 1], cmap=cm.get_cmap(cmap), c=attr, s=30)
+    plt.colorbar(scatter, ax=axes)
+
+
+def vis_attr(zs, ypr, transl):
+    # TODO: only import from vis_vae.py
+    print(zs.shape)
+    if zs.shape[1] > 2:
+        samples_pca = PCA(n_components=2).fit_transform(zs)
+        # samples_tsne = TSNE(n_components=2).fit_transform(zs)
+    elif zs.shape[1] == 1:
+        print("Unsupported dim of latent space!")
+        exit(0)
+
+    # samples = TSNE(n_components=2).fit_transform(samples)
+    # print(samples.shape)
+
+    fig, axes = plt.subplots(2, 3, figsize=(20, 10))
+    set_subplot_colormap(axes[0, 0], samples_pca, transl[:, 0], title="X-Translation", cmap="bwr")
+    set_subplot_colormap(axes[0, 1], samples_pca, transl[:, 1], title="Y-Translation", cmap="bwr")
+    set_subplot_colormap(axes[0, 2], samples_pca, transl[:, 2], title="Z-Translation", cmap="bwr")
+    cmap = LinearSegmentedColormap.from_list('mycmap', ['blue', 'white', 'blue'])
+    set_subplot_colormap(axes[1, 0], samples_pca, ypr[0], title="Yaw", cmap=cmap)
+    set_subplot_colormap(axes[1, 1], samples_pca, ypr[1], title="Pitch", cmap=cmap)
+    set_subplot_colormap(axes[1, 2], samples_pca, ypr[2], title="Roll", cmap=cmap)
+    return [fig]
+
+
 # (5,30,30,30,8)
 def main():
     # Variables
 
-    batch_size = 60
+    batch_size = 8
     z_dim = 128
-    OUT_FILE = "out/final_qube"
+    evaluate = 1
+    OUT_FILE = "out/test"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
 
@@ -180,8 +227,10 @@ def main():
     # supress tensorflow Warnings
     tf.logging.set_verbosity(tf.logging.ERROR)
 
-    train_path = "../Datasets/Voxel_qubes/dataset/qube/train"
-    test_path = "../Datasets/Voxel_qubes/dataset/qube/test"
+    train_path = "data/dataset/qube/train"
+    test_path = "data/dataset/qube/test"
+    # train_path = "../Datasets/Voxel_qubes/dataset/qube/train"
+    # test_path = "../Datasets/Voxel_qubes/dataset/qube/test"
 
     # load dataset
     iterator, length = create_iterator(batch_size, train_path)
@@ -189,6 +238,9 @@ def main():
 
     test_iterator, test_length = create_iterator(batch_size, test_path)
     test_next_element = test_iterator.get_next()
+
+    vis_iterator, vis_length = create_iterator(1, test_path)
+    vis_next_element = vis_iterator.get_next()
 
     # graph
     with tf.variable_scope('Image-Input'):
@@ -254,9 +306,13 @@ def main():
 
     with tf.variable_scope("Losses", reuse=tf.AUTO_REUSE):
         # print(kl_loss_n(mean, std).get_shape())
-        kl_divergence = tf.reduce_sum(kl_loss_n(mean, std))
+
+        dist = tfd.MultivariateNormalDiag(mean, std)
+        dist_n = tfd.MultivariateNormalDiag(tf.zeros_like(mean), tf.ones_like(std))
+        kl_divergence = 0.001*tf.reduce_mean(tfd.kl_divergence(dist, dist_n))
+        #kl_divergence = tf.reduce_sum(kl_loss_n(mean, std))
         # print(kl_divergence.get_shape())
-        rec_loss = tf.reduce_sum(binary_crossentropy(img_input, decode))
+        rec_loss = tf.reduce_mean(binary_crossentropy(img_input, decode))
         # print(rec_loss)
         loss = kl_divergence + rec_loss
         train_sum = tf.summary.scalar("loss", loss)
@@ -311,7 +367,8 @@ def main():
         i = 0
         epoch = 0
         # np.savez(OUT)
-
+    vis_session = tf.Session()
+    vis_session.run(vis_iterator.initializer)
     # dataloop
     # epoch = 0
     # i = 0
@@ -322,7 +379,7 @@ def main():
         # for i in range(0, 50001):
         while True:
             train_val, test_val = sess.run([next_element, test_next_element])
-
+            # print(train_val[1])
             # print(train_val[0].shape)
             # print(test_val[0].shape)
             # val = (tf.convert_to_tensor(val[0]))
@@ -353,15 +410,37 @@ def main():
             # break
 
 
-            if (i % 1000) == 0:
+            if (i % evaluate) == 0:
                 saver.save(train_sess, MODEL_PATH)
                 np.savez(CONFIG_PATH, state=np.array([epoch, i]))
                 print("Model saved!")
-            if (i % 500) == 0:
-                print("Save images")
-                vis_voxel_reconstruction(train_writer,reconstruction, train_val, i,)
-                vis_voxel_reconstruction(test_writer,test_reconstruction, test_val, i)
+            # if (i % evaluate) == 0:
+            #     print("Save images")
+            #     vis_voxel_reconstruction(train_writer,reconstruction, train_val, i,)
+            #     vis_voxel_reconstruction(test_writer,test_reconstruction, test_val, i)
+            if (i % evaluate) == 0:
+                j = 1
+                collect_means = []
+                ypr = []
+                transl = []
+                while True:
+                    vis_val = vis_session.run(vis_next_element)
+                    collect_means.append(train_sess.run(mean, feed_dict={img_input: vis_val[0], training : False}))
+                    ypr.append(vis_val[1])
+                    transl.append(vis_val[2])
 
+
+
+                    if j % (vis_length) == 0:
+                        vis_session.run(vis_iterator.initializer)
+                        break
+                    j += 1
+                ypr = np.stack(ypr)
+                transl = np.stack(transl)
+                zs = np.stack(collect_means)
+                figs = vis_attr(zs, ypr, transl)
+                test_writer.add_figure("Latent Visualization", figs, global_step=i)
+                plt.close(figs)
             if (i + 1) % (length // batch_size) == 0 and i > 0:
                 print("reinitialized")
                 epoch += 1
