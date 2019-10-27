@@ -82,7 +82,7 @@ def get_filenames(path):
 
 
 def load_samples(paths):
-    item = np.load(paths.decode())
+    item = np.load(paths.decode(), allow_pickle=True)
     voxel = item["voxel"]
     transl = item["transl"]
     ypr = item["yaw_pitch_roll"]
