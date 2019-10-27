@@ -82,7 +82,7 @@ def get_filenames(path):
 
 
 def load_samples(paths):
-    item = np.load(paths.decode(), allow_pickle=True)
+    item = np.load(paths.decode())
     voxel = item["voxel"]
     transl = item["transl"]
     ypr = item["yaw_pitch_roll"]
@@ -189,7 +189,10 @@ def set_subplot_colormap(axes, samples, attr, cmap="hot_r", title="Title", xlabl
 
 def vis_attr(zs, ypr, transl):
     # TODO: only import from vis_vae.py
-    print(zs.shape)
+    print("Zs:", zs.shape)
+    print("ypr: ", ypr.shape)
+    print("trans:", transl.shape)
+
     if zs.shape[1] > 2:
         samples_pca = PCA(n_components=2).fit_transform(zs)
         # samples_tsne = TSNE(n_components=2).fit_transform(zs)
@@ -205,20 +208,20 @@ def vis_attr(zs, ypr, transl):
     set_subplot_colormap(axes[0, 1], samples_pca, transl[:, 1], title="Y-Translation", cmap="bwr")
     set_subplot_colormap(axes[0, 2], samples_pca, transl[:, 2], title="Z-Translation", cmap="bwr")
     cmap = LinearSegmentedColormap.from_list('mycmap', ['blue', 'white', 'blue'])
-    set_subplot_colormap(axes[1, 0], samples_pca, ypr[0], title="Yaw", cmap=cmap)
-    set_subplot_colormap(axes[1, 1], samples_pca, ypr[1], title="Pitch", cmap=cmap)
-    set_subplot_colormap(axes[1, 2], samples_pca, ypr[2], title="Roll", cmap=cmap)
-    return [fig]
+    set_subplot_colormap(axes[1, 0], samples_pca, ypr[:,0], title="Yaw", cmap=cmap)
+    set_subplot_colormap(axes[1, 1], samples_pca, ypr[:,1], title="Pitch", cmap=cmap)
+    set_subplot_colormap(axes[1, 2], samples_pca, ypr[:,2], title="Roll", cmap=cmap)
+    return fig
 
 
 # (5,30,30,30,8)
 def main():
     # Variables
-
-    batch_size = 8
     z_dim = 128
-    evaluate = 1
-    OUT_FILE = "out/test"
+    evaluate = 100
+    batch_size = 50
+    test_batch = 6
+    OUT_FILE = "out/final_qube"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
 
@@ -236,7 +239,7 @@ def main():
     iterator, length = create_iterator(batch_size, train_path)
     next_element = iterator.get_next()
 
-    test_iterator, test_length = create_iterator(batch_size, test_path)
+    test_iterator, test_length = create_iterator(test_batch, test_path)
     test_next_element = test_iterator.get_next()
 
     vis_iterator, vis_length = create_iterator(1, test_path)
@@ -414,10 +417,10 @@ def main():
                 saver.save(train_sess, MODEL_PATH)
                 np.savez(CONFIG_PATH, state=np.array([epoch, i]))
                 print("Model saved!")
-            # if (i % evaluate) == 0:
-            #     print("Save images")
-            #     vis_voxel_reconstruction(train_writer,reconstruction, train_val, i,)
-            #     vis_voxel_reconstruction(test_writer,test_reconstruction, test_val, i)
+            if (i % evaluate) == 0:
+                print("Save images")
+                vis_voxel_reconstruction(train_writer,reconstruction, train_val, i,)
+                vis_voxel_reconstruction(test_writer,test_reconstruction, test_val, i)
             if (i % evaluate) == 0:
                 j = 1
                 collect_means = []
@@ -425,9 +428,9 @@ def main():
                 transl = []
                 while True:
                     vis_val = vis_session.run(vis_next_element)
-                    collect_means.append(train_sess.run(mean, feed_dict={img_input: vis_val[0], training : False}))
-                    ypr.append(vis_val[1])
-                    transl.append(vis_val[2])
+                    collect_means.append(train_sess.run(mean, feed_dict={img_input: vis_val[0], training : False})[0])
+                    ypr.append(vis_val[1][0])
+                    transl.append(vis_val[2][0])
 
 
 
@@ -445,7 +448,7 @@ def main():
                 print("reinitialized")
                 epoch += 1
                 sess.run(iterator.initializer)
-            if (i + 1) % (test_length // batch_size) == 0 and i > 0:
+            if (i + 1) % (test_length // test_batch) == 0 and i > 0:
                 print("test reinitialized")
                 epoch += 1
                 sess.run(test_iterator.initializer)
