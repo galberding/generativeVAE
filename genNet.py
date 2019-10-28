@@ -149,7 +149,7 @@ def kl_loss_n(mean, log_var):
 
 def vis_voxel_reconstruction(writer, reconstruction, val, iteration):
     vis = 2
-    fig, axes = plt.subplots(vis, 2, subplot_kw=dict(projection='3d'), figsize=(25, 25))
+    fig, axes = plt.subplots(vis, 2, subplot_kw=dict(projection='3d'), figsize=(15, 15))
     # print(type(reconstruction))
     # print(reconstruction)
     # if not os.path.exists(path):
@@ -157,10 +157,16 @@ def vis_voxel_reconstruction(writer, reconstruction, val, iteration):
     for i in range(vis):
         voxel_rec = reconstruction
         label = val[0][i].T[0]
-        # print(label.shape)
         pred = voxel_rec[i].T[0]
-        # pred[pred < 0.5] = 0
-        # pred[pred >= 0.5] = 1
+        # pred[0,:,:] = 0
+        # pred[-1,:,:] = 0
+        # pred[:,0,:] = 0
+        # pred[:,-1,:] = 0
+        # pred[:,:,0] = 0
+        # pred[:,:,-1] = 0
+        # print(pred.shape)
+        pred[pred < 0.5] = 0
+        pred[pred >= 0.5] = 1
         # colors = np.empty(spatial_axes + [4], dtype=np.float32)
         alpha = .4
         # colors[0] = [1, 0, 0, alpha]
@@ -219,9 +225,10 @@ def main():
     # Variables
     z_dim = 128
     evaluate = 100
-    batch_size = 50
+    batch_size = 10
     test_batch = 6
-    OUT_FILE = "out/final_qube"
+    # OUT_FILE = "out/test"
+    OUT_FILE = "out/final2"
     MODEL_PATH = os.path.join(OUT_FILE, "model.ckpt")
     CONFIG_PATH = os.path.join(OUT_FILE, "config.npz")
 
